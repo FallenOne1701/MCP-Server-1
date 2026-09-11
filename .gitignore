@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+coverage/
+.tokens/
+token.json
+credentials.json
+Credential.json
+*.token.json
+.tokens/
+.vscode/
+.idea/

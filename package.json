@@ -1,0 +1,53 @@
+{
+  "name": "google-workspace-mcp-server",
+  "version": "1.0.0",
+  "description": "Generic MCP server for Gmail drafts/send and Google Docs append",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "google-workspace-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "start:http": "node dist/http.js",
+    "dev": "tsx src/server.ts",
+    "dev:http": "tsx src/http.ts",
+    "auth": "tsx src/scripts/auth.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run build && tsx scripts/verify-mcp.mts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "gmail",
+    "google-docs",
+    "google-workspace"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/express": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "googleapis": "^180.0.0",
+    "hono": "^4.13.7",
+    "nodemailer": "^10.0.3",
+    "open": "^11.0.2",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.2",
+    "@types/nodemailer": "^8.0.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}
