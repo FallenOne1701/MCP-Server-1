@@ -1,7 +1,10 @@
 import { google, type Auth } from "googleapis";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { AppConfig } from "../../config/index.js";
+import {
+  assertGoogleAuthEnvConfigured,
+  type AppConfig,
+} from "../../config/index.js";
 import { AppError } from "../../errors/index.js";
 import type { Logger } from "../../logging/index.js";
 
@@ -29,6 +32,7 @@ export class GoogleOAuthProvider implements GoogleAuthProvider {
   ) {}
 
   createOAuthClient(): Auth.OAuth2Client {
+    assertGoogleAuthEnvConfigured();
     return new google.auth.OAuth2(
       this.config.googleClientId,
       this.config.googleClientSecret,

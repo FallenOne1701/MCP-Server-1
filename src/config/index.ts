@@ -30,15 +30,56 @@ export interface AppConfig {
   allowedHosts: string[];
 }
 
+/** True when running inside a Railway service container. */
+export function isRailwayRuntime(): boolean {
+  return Boolean(
+    process.env.RAILWAY_ENVIRONMENT?.trim() ||
+      process.env.RAILWAY_PROJECT_ID?.trim() ||
+      process.env.RAILWAY_SERVICE_ID?.trim(),
+  );
+}
+
+function missingEnvHint(name: string): string {
+  if (isRailwayRuntime()) {
+    return (
+      `Missing required environment variable: ${name}. ` +
+      `Set it under Railway → your service → Variables, then redeploy. ` +
+      `Needed for Google OAuth: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ` +
+      `GOOGLE_REDIRECT_URI, and GOOGLE_REFRESH_TOKEN (or a volume + GOOGLE_TOKEN_STORAGE).`
+    );
+  }
+  return (
+    `Missing required environment variable: ${name}. ` +
+    `Copy .env.example to .env and run npm run auth.`
+  );
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
-    throw new AppError(
-      "AUTHENTICATION_REQUIRED",
-      `Missing required environment variable: ${name}. Copy .env.example to .env and run npm run auth.`,
-    );
+    throw new AppError("AUTHENTICATION_REQUIRED", missingEnvHint(name));
   }
   return value;
+}
+
+/** Names of Google OAuth env vars that must be non-empty for API calls. */
+export function missingGoogleAuthEnvVars(): string[] {
+  const missing: string[] = [];
+  if (!process.env.GOOGLE_CLIENT_ID?.trim()) missing.push("GOOGLE_CLIENT_ID");
+  if (!process.env.GOOGLE_CLIENT_SECRET?.trim()) {
+    missing.push("GOOGLE_CLIENT_SECRET");
+  }
+  return missing;
+}
+
+/**
+ * Throw if Google OAuth client credentials are not configured.
+ * Used at tool/auth time so HTTP can still boot for /health on Railway.
+ */
+export function assertGoogleAuthEnvConfigured(): void {
+  const missing = missingGoogleAuthEnvVars();
+  if (missing.length === 0) return;
+  throw new AppError("AUTHENTICATION_REQUIRED", missingEnvHint(missing[0]!));
 }
 
 function parseBool(value: string | undefined, defaultValue: boolean): boolean {

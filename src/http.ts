@@ -8,6 +8,10 @@ import type { NextFunction, Request, Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
+import {
+  isRailwayRuntime,
+  missingGoogleAuthEnvVars,
+} from "./config/index.js";
 import { createAppContext, createAppServer } from "./app.js";
 
 function safeEqualString(a: string, b: string): boolean {
@@ -40,12 +44,29 @@ function requireMcpApiKey(apiKey: string) {
 }
 
 async function main(): Promise<void> {
-  const ctx = createAppContext({ requireAuthEnv: true });
+  // Do not hard-crash on missing Google OAuth env at boot — Railway health
+  // checks need the process listening. Tools/OAuth still require credentials.
+  const ctx = createAppContext({ requireAuthEnv: false });
   const { config, logger, auth } = ctx;
 
   if (!config.mcpApiKey) {
-    throw new Error(
-      "MCP_API_KEY is required for HTTP mode. Set it in the environment before starting.",
+    const where = isRailwayRuntime()
+      ? "Set MCP_API_KEY in Railway → Variables, then redeploy."
+      : "Set MCP_API_KEY in the environment before starting.";
+    throw new Error(`MCP_API_KEY is required for HTTP mode. ${where}`);
+  }
+
+  const missingGoogle = missingGoogleAuthEnvVars();
+  if (missingGoogle.length > 0) {
+    logger.error(
+      "Google OAuth env is incomplete; /health will work but MCP tools will fail until Variables are set",
+      {
+        missing: missingGoogle,
+        railway: isRailwayRuntime(),
+        hint: isRailwayRuntime()
+          ? "Railway → service → Variables: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_REFRESH_TOKEN (or volume)"
+          : "Copy .env.example to .env and fill Google OAuth values",
+      },
     );
   }
 
@@ -56,7 +77,11 @@ async function main(): Promise<void> {
   });
 
   app.get("/health", (_req, res) => {
-    res.status(200).json({ status: "ok" });
+    const googleConfigured = missingGoogleAuthEnvVars().length === 0;
+    res.status(200).json({
+      status: "ok",
+      googleConfigured,
+    });
   });
 
   if (config.enableOauthSetup) {
@@ -65,8 +90,16 @@ async function main(): Promise<void> {
     });
 
     app.get("/oauth/start", (_req, res) => {
-      const url = auth.getAuthUrl("mcp-http-setup");
-      res.redirect(302, url);
+      try {
+        const url = auth.getAuthUrl("mcp-http-setup");
+        res.redirect(302, url);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : "OAuth is not configured";
+        logger.error("OAuth start failed", { detail });
+        res.status(503).type("html").send(
+          `<html><body><h1>OAuth not configured</h1><p>${detail}</p></body></html>`,
+        );
+      }
     });
 
     app.get("/oauth2callback", async (req, res) => {
